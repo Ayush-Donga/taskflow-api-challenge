@@ -14,6 +14,6 @@ import { Task } from './entities/task.entity';
   ],
   controllers: [TasksController],
   providers: [TasksService],
-  exports: [TasksService],
+  exports: [TasksService, TypeOrmModule],
 })
-export class TasksModule {} 
+export class TasksModule {}
