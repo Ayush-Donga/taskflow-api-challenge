@@ -10,6 +10,7 @@ import { TaskStatus } from './enums/task-status.enum';
 import { PaginationOptions, PaginatedResponse } from '../../types/pagination.interface';
 import { TaskFilterDto } from './dto/task-filter.dto';
 import { TaskPriority } from './enums/task-priority.enum';
+import { TaskDomainService } from './services/task-domain.service';
 
 @Injectable()
 export class TasksService {
@@ -18,11 +19,14 @@ export class TasksService {
     private tasksRepository: Repository<Task>,
     @InjectQueue('task-processing')
     private taskQueue: Queue,
+    private taskDomainService: TaskDomainService,
   ) {}
 
   async create(createTaskDto: CreateTaskDto): Promise<Task> {
+    this.taskDomainService.validateTaskCreation(createTaskDto);
+    const task = this.taskDomainService.createFromDto(createTaskDto);
+
     return this.tasksRepository.manager.transaction(async transactionalEntityManager => {
-      const task = this.tasksRepository.create(createTaskDto);
       const savedTask = await transactionalEntityManager.save(Task, task);
       await this.taskQueue.add('task-status-update', {
         taskId: savedTask.id,
@@ -44,15 +48,9 @@ export class TasksService {
       .leftJoinAndSelect('task.user', 'user')
       .where('1=1');
 
-    if (status) {
-      queryBuilder.andWhere('task.status = :status', { status });
-    }
-    if (priority) {
-      queryBuilder.andWhere('task.priority = :priority', { priority });
-    }
-    if (userId) {
-      queryBuilder.andWhere('task.userId = :userId', { userId });
-    }
+    if (status) queryBuilder.andWhere('task.status = :status', { status });
+    if (priority) queryBuilder.andWhere('task.priority = :priority', { priority });
+    if (userId) queryBuilder.andWhere('task.userId = :userId', { userId });
 
     const [data, total] = await queryBuilder
       .orderBy(`task.${sortBy}`, sortOrder)
@@ -72,52 +70,48 @@ export class TasksService {
   }
 
   async findOne(id: string): Promise<Task> {
-    // Inefficient implementation: two separate database calls
-    const count = await this.tasksRepository.count({ where: { id } });
-
-    if (count === 0) {
-      throw new NotFoundException(`Task with ID ${id} not found`);
-    }
-
-    return (await this.tasksRepository.findOne({
+    const task = await this.tasksRepository.findOne({
       where: { id },
       relations: ['user'],
-    })) as Task;
+    });
+
+    return this.taskDomainService.ensureExists(task, id);
   }
 
-  async update(id: string, updateTaskDto: UpdateTaskDto): Promise<Task> {
+  async update(id: string, updateDto: UpdateTaskDto): Promise<Task> {
     return this.tasksRepository.manager.transaction(async transactionalEntityManager => {
       const task = await this.findOne(id);
       const originalStatus = task.status;
-      Object.assign(task, updateTaskDto);
-      const updatedTask = await transactionalEntityManager.save(Task, task);
-      if (originalStatus !== updatedTask.status) {
+
+      const updatedTask = this.taskDomainService.applyUpdate(task, updateDto);
+      const savedTask = await transactionalEntityManager.save(Task, updatedTask);
+
+      if (originalStatus !== savedTask.status) {
         await this.taskQueue.add('task-status-update', {
-          taskId: updatedTask.id,
-          status: updatedTask.status,
+          taskId: savedTask.id,
+          status: savedTask.status,
         });
       }
-      return updatedTask;
+
+      return savedTask;
     });
   }
 
   async remove(id: string): Promise<void> {
-    // Inefficient implementation: two separate database calls
     const task = await this.findOne(id);
     await this.tasksRepository.remove(task);
   }
 
   async findByStatus(status: TaskStatus): Promise<Task[]> {
-    // Inefficient implementation: doesn't use proper repository patterns
-    const query = 'SELECT * FROM tasks WHERE status = $1';
-    return this.tasksRepository.query(query, [status]);
+    return this.tasksRepository.find({ where: { status } });
   }
 
   async updateStatus(id: string, status: string): Promise<Task> {
-    // This method will be called by the task processor
-    const task = await this.findOne(id);
-    task.status = status as any;
-    return this.tasksRepository.save(task);
+    return this.tasksRepository.manager.transaction(async manager => {
+      const task = await this.findOne(id);
+      const updatedTask = this.taskDomainService.updateStatus(task, status);
+      return await manager.save(updatedTask);
+    });
   }
 
   async getStats() {

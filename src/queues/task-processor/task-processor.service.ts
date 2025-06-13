@@ -19,7 +19,7 @@ export class TaskProcessorService extends WorkerHost {
   // - No concurrency control
   async process(job: Job): Promise<any> {
     this.logger.debug(`Processing job ${job.id} of type ${job.name}`);
-    
+
     try {
       switch (job.name) {
         case 'task-status-update':
@@ -32,36 +32,47 @@ export class TaskProcessorService extends WorkerHost {
       }
     } catch (error) {
       // Basic error logging without proper handling or retries
-      this.logger.error(`Error processing job ${job.id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(
+        `Error processing job ${job.id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
       throw error; // Simply rethrows the error without any retry strategy
     }
   }
 
   private async handleStatusUpdate(job: Job) {
     const { taskId, status } = job.data;
-    
+
     if (!taskId || !status) {
+      this.logger.warn(`Invalid job data for task-status-update: ${JSON.stringify(job.data)}`);
       return { success: false, error: 'Missing required data' };
     }
-    
-    // Inefficient: No validation of status values
-    // No transaction handling
-    // No retry mechanism
-    const task = await this.tasksService.updateStatus(taskId, status);
-    
-    return { 
-      success: true,
-      taskId: task.id,
-      newStatus: task.status
-    };
+
+    try {
+      const task = await this.tasksService.updateStatus(taskId, status);
+
+      this.logger.log(`Task ${task.id} status updated to ${task.status}`);
+      return {
+        success: true,
+        taskId: task.id,
+        newStatus: task.status,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      this.logger.error(`Failed to update task status: ${errorMessage}`);
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
   }
 
   private async handleOverdueTasks(job: Job) {
     // Inefficient implementation with no batching or chunking for large datasets
     this.logger.debug('Processing overdue tasks notification');
-    
+
     // The implementation is deliberately basic and inefficient
     // It should be improved with proper batching and error handling
     return { success: true, message: 'Overdue tasks processed' };
   }
-} 
+}
