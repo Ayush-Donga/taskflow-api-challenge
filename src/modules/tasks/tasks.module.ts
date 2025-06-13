@@ -7,6 +7,7 @@ import { Task } from './entities/task.entity';
 import { TaskDomainService } from './services/task-domain.service';
 import { TaskCommandService } from './services/task-command.service';
 import { TaskQueryService } from './services/task-query.service';
+import { RedisService } from '@common/services/redis.service';
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { TaskQueryService } from './services/task-query.service';
     }),
   ],
   controllers: [TasksController],
-  providers: [TasksService, TaskDomainService, TaskCommandService, TaskQueryService],
+  providers: [TasksService, TaskDomainService, TaskCommandService, TaskQueryService, RedisService],
   exports: [TasksService, TaskCommandService, TaskQueryService, TypeOrmModule],
 })
 export class TasksModule {}
