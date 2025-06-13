@@ -3,6 +3,7 @@ import { IsEnum, IsOptional, IsUUID, IsString, IsInt, Min } from 'class-validato
 import { Type } from 'class-transformer';
 import { TaskStatus } from '../enums/task-status.enum';
 import { TaskPriority } from '../enums/task-priority.enum';
+import { FindOperator } from 'typeorm';
 
 export class TaskFilterDto {
   @ApiProperty({ enum: TaskStatus, required: false })
@@ -19,6 +20,11 @@ export class TaskFilterDto {
   @IsUUID()
   @IsOptional()
   userId?: string;
+
+  @ApiPropertyOptional({ type: Date })
+  @IsOptional()
+  @Type(() => Date)
+  dueDate?: Date | FindOperator<Date>;
 
   @ApiPropertyOptional({ default: 1 })
   @Type(() => Number)

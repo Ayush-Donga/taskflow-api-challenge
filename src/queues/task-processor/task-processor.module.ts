@@ -11,7 +11,7 @@ import { TasksModule } from '../../modules/tasks/tasks.module';
         attempts: 3,
         backoff: {
           type: 'exponential',
-          delay: 5000,
+          delay: 1000,
         },
         removeOnComplete: true,
         removeOnFail: false,

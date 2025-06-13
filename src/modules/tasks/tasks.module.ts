@@ -5,6 +5,8 @@ import { TasksService } from './tasks.service';
 import { TasksController } from './tasks.controller';
 import { Task } from './entities/task.entity';
 import { TaskDomainService } from './services/task-domain.service';
+import { TaskCommandService } from './services/task-command.service';
+import { TaskQueryService } from './services/task-query.service';
 
 @Module({
   imports: [
@@ -23,7 +25,7 @@ import { TaskDomainService } from './services/task-domain.service';
     }),
   ],
   controllers: [TasksController],
-  providers: [TasksService, TaskDomainService],
-  exports: [TasksService, TypeOrmModule],
+  providers: [TasksService, TaskDomainService, TaskCommandService, TaskQueryService],
+  exports: [TasksService, TaskCommandService, TaskQueryService, TypeOrmModule],
 })
 export class TasksModule {}

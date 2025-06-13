@@ -1,9 +1,9 @@
 import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { Task } from '../entities/task.entity';
-import { TaskStatus } from '../enums/task-status.enum';
 import { CreateTaskDto } from '../dto/create-task.dto';
 import { UpdateTaskDto } from '../dto/update-task.dto';
 import { TaskPriority } from '../enums/task-priority.enum';
+import { TaskStatus } from '../enums/task-status.enum';
 
 @Injectable()
 export class TaskDomainService {
@@ -49,17 +49,9 @@ export class TaskDomainService {
 
   updateStatus(task: Task, newStatus: string): Task {
     if (!Object.values(TaskStatus).includes(newStatus as TaskStatus)) {
-      throw new Error(`Invalid status: ${newStatus}`);
+      throw new HttpException(`Invalid status: ${newStatus}`, HttpStatus.BAD_REQUEST);
     }
-
     task.status = newStatus as TaskStatus;
-    return task;
-  }
-
-  ensureExists(task: Task | null, id: string): Task {
-    if (!task) {
-      throw new NotFoundException(`Task with ID ${id} not found`);
-    }
     return task;
   }
 }
