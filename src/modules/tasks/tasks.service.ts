@@ -9,6 +9,7 @@ import { Queue } from 'bullmq';
 import { TaskStatus } from './enums/task-status.enum';
 import { PaginationOptions, PaginatedResponse } from '../../types/pagination.interface';
 import { TaskFilterDto } from './dto/task-filter.dto';
+import { TaskPriority } from './enums/task-priority.enum';
 
 @Injectable()
 export class TasksService {
@@ -131,5 +132,23 @@ export class TasksService {
     const task = await this.findOne(id);
     task.status = status as any;
     return this.tasksRepository.save(task);
+  }
+
+  async getStats() {
+    const queryBuilder = this.tasksRepository
+      .createQueryBuilder('task')
+      .select('COUNT(*)', 'total')
+      .addSelect(`COUNT(*) FILTER (WHERE task.status = :completed)`, 'completed')
+      .addSelect(`COUNT(*) FILTER (WHERE task.status = :inProgress)`, 'inProgress')
+      .addSelect(`COUNT(*) FILTER (WHERE task.status = :pending)`, 'pending')
+      .addSelect(`COUNT(*) FILTER (WHERE task.priority = :highPriority)`, 'highPriority')
+      .setParameters({
+        completed: TaskStatus.COMPLETED,
+        inProgress: TaskStatus.IN_PROGRESS,
+        pending: TaskStatus.PENDING,
+        highPriority: TaskPriority.HIGH,
+      });
+
+    return queryBuilder.getRawOne();
   }
 }
