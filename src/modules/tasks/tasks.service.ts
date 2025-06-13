@@ -21,18 +21,15 @@ export class TasksService {
   ) {}
 
   async create(createTaskDto: CreateTaskDto): Promise<Task> {
-    // Inefficient implementation: creates the task but doesn't use a single transaction
-    // for creating and adding to queue, potential for inconsistent state
-    const task = this.tasksRepository.create(createTaskDto);
-    const savedTask = await this.tasksRepository.save(task);
-
-    // Add to queue without waiting for confirmation or handling errors
-    this.taskQueue.add('task-status-update', {
-      taskId: savedTask.id,
-      status: savedTask.status,
+    return this.tasksRepository.manager.transaction(async transactionalEntityManager => {
+      const task = this.tasksRepository.create(createTaskDto);
+      const savedTask = await transactionalEntityManager.save(Task, task);
+      await this.taskQueue.add('task-status-update', {
+        taskId: savedTask.id,
+        status: savedTask.status,
+      });
+      return savedTask;
     });
-
-    return savedTask;
   }
 
   async findAll(
@@ -89,30 +86,19 @@ export class TasksService {
   }
 
   async update(id: string, updateTaskDto: UpdateTaskDto): Promise<Task> {
-    // Inefficient implementation: multiple database calls
-    // and no transaction handling
-    const task = await this.findOne(id);
-
-    const originalStatus = task.status;
-
-    // Directly update each field individually
-    if (updateTaskDto.title) task.title = updateTaskDto.title;
-    if (updateTaskDto.description) task.description = updateTaskDto.description;
-    if (updateTaskDto.status) task.status = updateTaskDto.status;
-    if (updateTaskDto.priority) task.priority = updateTaskDto.priority;
-    if (updateTaskDto.dueDate) task.dueDate = updateTaskDto.dueDate;
-
-    const updatedTask = await this.tasksRepository.save(task);
-
-    // Add to queue if status changed, but without proper error handling
-    if (originalStatus !== updatedTask.status) {
-      this.taskQueue.add('task-status-update', {
-        taskId: updatedTask.id,
-        status: updatedTask.status,
-      });
-    }
-
-    return updatedTask;
+    return this.tasksRepository.manager.transaction(async transactionalEntityManager => {
+      const task = await this.findOne(id);
+      const originalStatus = task.status;
+      Object.assign(task, updateTaskDto);
+      const updatedTask = await transactionalEntityManager.save(Task, task);
+      if (originalStatus !== updatedTask.status) {
+        await this.taskQueue.add('task-status-update', {
+          taskId: updatedTask.id,
+          status: updatedTask.status,
+        });
+      }
+      return updatedTask;
+    });
   }
 
   async remove(id: string): Promise<void> {
