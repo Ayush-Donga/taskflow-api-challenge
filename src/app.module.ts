@@ -12,6 +12,7 @@ import { ScheduledTasksModule } from './queues/scheduled-tasks/scheduled-tasks.m
 import { CacheService } from './common/services/cache.service';
 import jwtConfig from '@config/jwt.config';
 import { AppLoggerService } from '@common/services/logger.service';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -69,7 +70,8 @@ import { AppLoggerService } from '@common/services/logger.service';
     UsersModule,
     TasksModule,
     AuthModule,
-
+    // Health check module
+    HealthModule,
     // Queue processing modules
     TaskProcessorModule,
     ScheduledTasksModule,
@@ -78,13 +80,11 @@ import { AppLoggerService } from '@common/services/logger.service';
     // Inefficient: Global cache service with no configuration options
     // This creates a single in-memory cache instance shared across all modules
     CacheService,
-    AppLoggerService,
   ],
   exports: [
     // Exporting the cache service makes it available to other modules
     // but creates tight coupling
     CacheService,
-    AppLoggerService,
   ],
 })
 export class AppModule {}
