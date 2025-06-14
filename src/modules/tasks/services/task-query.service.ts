@@ -6,12 +6,14 @@ import { PaginationOptions, PaginatedResponse } from '../../../types/pagination.
 import { TaskStatus } from '../enums/task-status.enum';
 import { TaskPriority } from '../enums/task-priority.enum';
 import { TaskFilterDto } from '../dto/task-filter.dto';
+import { CacheService } from '@common/services/cache.service';
 
 @Injectable()
 export class TaskQueryService {
   constructor(
     @InjectRepository(Task)
     private tasksRepository: Repository<Task>,
+    private cacheService: CacheService,
   ) {}
 
   async handleGetTasksQuery(
@@ -49,10 +51,21 @@ export class TaskQueryService {
   }
 
   async handleGetTaskByIdQuery(id: string): Promise<Task | null> {
-    return this.tasksRepository.findOne({
+    const cacheKey = `task:${id}`;
+    const cached = await this.cacheService.get<Task>(cacheKey);
+
+    if (cached) return cached;
+
+    const task = await this.tasksRepository.findOne({
       where: { id },
       relations: ['user'],
     });
+
+    if (task) {
+      await this.cacheService.set(cacheKey, task, 300); // Cache for 5 mins
+    }
+
+    return task;
   }
 
   async handleGetTasksByIdsQuery(ids: string[]): Promise<Task[]> {
