@@ -2,16 +2,20 @@ import { IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from '
 import { ApiProperty } from '@nestjs/swagger';
 import { TaskStatus } from '../enums/task-status.enum';
 import { TaskPriority } from '../enums/task-priority.enum';
+import { Transform } from 'class-transformer';
+import { sanitize } from 'class-sanitizer';
 
 export class CreateTaskDto {
   @ApiProperty({ example: 'Complete project documentation' })
   @IsString()
   @IsNotEmpty()
+  @Transform(({ value }) => sanitize(value))
   title: string;
 
   @ApiProperty({ example: 'Add details about API endpoints and data models', required: false })
   @IsString()
   @IsOptional()
+  @Transform(({ value }) => sanitize(value))
   description?: string;
 
   @ApiProperty({ enum: TaskStatus, example: TaskStatus.PENDING, required: false })
