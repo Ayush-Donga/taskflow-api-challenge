@@ -12,25 +12,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const status = exception.getStatus();
     const exceptionResponse = exception.getResponse();
 
-    // TODO: Implement comprehensive error handling
-    // This filter should:
-    // 1. Log errors appropriately based on their severity
-    // 2. Format error responses in a consistent way
-    // 3. Include relevant error details without exposing sensitive information
-    // 4. Handle different types of errors with appropriate status codes
-
-    this.logger.error(
-      `HTTP Exception: ${exception.message}`,
-      exception.stack,
-    );
-
-    // Basic implementation (to be enhanced by candidates)
-    response.status(status).json({
+    const errorResponse = {
       success: false,
       statusCode: status,
-      message: exception.message,
+      message:
+        typeof exceptionResponse === 'string'
+          ? exceptionResponse
+          : (exceptionResponse as any).message,
       path: request.url,
       timestamp: new Date().toISOString(),
-    });
+    };
+
+    this.logger.error(`HTTP Exception: ${JSON.stringify(errorResponse)}`, exception.stack);
+    response.status(status).json(errorResponse);
   }
-} 
+}
