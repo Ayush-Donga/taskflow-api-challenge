@@ -9,10 +9,19 @@ import { TasksModule } from '../../modules/tasks/tasks.module';
     ScheduleModule.forRoot(),
     BullModule.registerQueue({
       name: 'task-processing',
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: true,
+        removeOnFail: false,
+      },
     }),
     TasksModule,
   ],
   providers: [OverdueTasksService],
   exports: [OverdueTasksService],
 })
-export class ScheduledTasksModule {} 
+export class ScheduledTasksModule {}
