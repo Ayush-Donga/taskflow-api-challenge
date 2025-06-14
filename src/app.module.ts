@@ -13,6 +13,7 @@ import { CacheService } from './common/services/cache.service';
 import jwtConfig from '@config/jwt.config';
 import { AppLoggerService } from '@common/services/logger.service';
 import { HealthModule } from './health/health.module';
+import { MetricsService } from '@common/services/metrics.service';
 
 @Module({
   imports: [
@@ -80,11 +81,13 @@ import { HealthModule } from './health/health.module';
     // Inefficient: Global cache service with no configuration options
     // This creates a single in-memory cache instance shared across all modules
     CacheService,
+    MetricsService,
   ],
   exports: [
     // Exporting the cache service makes it available to other modules
     // but creates tight coupling
     CacheService,
+    MetricsService,
   ],
 })
 export class AppModule {}
