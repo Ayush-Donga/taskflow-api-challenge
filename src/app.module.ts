@@ -14,6 +14,7 @@ import jwtConfig from '@config/jwt.config';
 import { AppLoggerService } from '@common/services/logger.service';
 import { HealthModule } from './health/health.module';
 import { MetricsService } from '@common/services/metrics.service';
+import { RedisService } from '@common/services/redis.service';
 
 @Module({
   imports: [
@@ -82,12 +83,14 @@ import { MetricsService } from '@common/services/metrics.service';
     // This creates a single in-memory cache instance shared across all modules
     CacheService,
     MetricsService,
+    RedisService,
   ],
   exports: [
     // Exporting the cache service makes it available to other modules
     // but creates tight coupling
     CacheService,
     MetricsService,
+    RedisService,
   ],
 })
 export class AppModule {}

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -9,6 +9,8 @@ import { UpdateTaskDto } from '../dto/update-task.dto';
 import { TaskDomainService } from './task-domain.service';
 import { TaskQueryService } from './task-query.service';
 import { TaskStatus } from '../enums/task-status.enum';
+import { RedisService } from '@common/services/redis.service';
+import { CacheService } from '@common/services/cache.service';
 
 @Injectable()
 export class TaskCommandService {
@@ -19,6 +21,8 @@ export class TaskCommandService {
     private taskQueue: Queue,
     private taskDomainService: TaskDomainService,
     private taskQueryService: TaskQueryService,
+    private redisService: RedisService,
+    private cacheService: CacheService,
   ) {}
 
   async handleCreateTaskCommand(createTaskDto: CreateTaskDto): Promise<Task> {
@@ -36,25 +40,39 @@ export class TaskCommandService {
   }
 
   async handleUpdateTaskCommand(id: string, updateDto: UpdateTaskDto): Promise<Task> {
-    return this.tasksRepository.manager.transaction(async transactionalEntityManager => {
-      const task = await this.taskQueryService.handleGetTaskByIdQuery(id);
-      if (!task) {
-        throw new NotFoundException(`Task with ID ${id} not found`);
-      }
-      const originalStatus = task.status;
+    const lockKey = `lock:task:${id}`;
+    const lockAcquired = await this.redisService.acquireLock(lockKey, 10000); // 10s
 
-      const updatedTask = this.taskDomainService.applyUpdate(task, updateDto);
-      const savedTask = await transactionalEntityManager.save(Task, updatedTask);
+    if (!lockAcquired) {
+      throw new ConflictException('Task is being updated. Please try again later.');
+    }
 
-      if (originalStatus !== savedTask.status) {
-        await this.taskQueue.add('task-status-updated', {
-          taskId: savedTask.id,
-          status: savedTask.status,
-        });
-      }
+    try {
+      return await this.tasksRepository.manager.transaction(async transactionalEntityManager => {
+        const task = await this.taskQueryService.handleGetTaskByIdQuery(id);
+        if (!task) {
+          throw new NotFoundException(`Task with ID ${id} not found`);
+        }
 
-      return savedTask;
-    });
+        const originalStatus = task.status;
+        const updatedTask = this.taskDomainService.applyUpdate(task, updateDto);
+        const savedTask = await transactionalEntityManager.save(Task, updatedTask);
+
+        if (originalStatus !== savedTask.status) {
+          await this.taskQueue.add('task-status-updated', {
+            taskId: savedTask.id,
+            status: savedTask.status,
+          });
+        }
+
+        // Invalidate cache
+        await this.cacheService.delete(`task:${id}`);
+
+        return savedTask;
+      });
+    } finally {
+      await this.redisService.releaseLock(lockKey);
+    }
   }
 
   async handleDeleteTaskCommand(id: string): Promise<void> {
