@@ -252,3 +252,58 @@ The API should expose the following endpoints:
 - `POST /tasks/batch` - Batch operations on tasks
 
 Good luck! This challenge is designed to test the skills of experienced engineers in creating scalable, maintainable, and secure systems.
+
+
+# TaskFlow API
+
+## Overview
+This is a task management API built with NestJS, TypeORM, PostgreSQL, and Redis. The codebase has been refactored to address performance, scalability, security, and reliability issues.
+
+## Problem Analysis
+- **Performance**: N+1 queries, in-memory filtering, and inefficient batch operations were optimized with database-level queries, indexing, and bulk operations.
+- **Architecture**: Separation of concerns was improved by removing repository access from controllers and introducing CQRS for read/write separation.
+- **Security**: Rate limiting was moved to Redis, authentication was strengthened with refresh token rotation, and authorization was enhanced with role hierarchies.
+- **Reliability**: Added circuit breakers, structured logging, health checks, and metrics for observability.
+- **Distributed Systems**: Implemented Redis-based caching and concurrency control for multi-instance deployments.
+
+## Architectural Approach
+- **CQRS**: Separated read (`TaskQueryService`) and write (`TaskCommandService`) operations for better scalability.
+- **SOLID Principles**: Introduced `TaskDomainService` for business logic, ensuring single responsibility.
+- **Transaction Management**: Used TypeORM transactions for consistent multi-step operations.
+- **Observability**: Added Prometheus metrics, structured logging with Winston, and health checks with Terminus.
+
+## Key Technical Decisions
+- **Redis for Rate Limiting and Caching**: Ensures scalability in distributed environments.
+- **Circuit Breakers**: Protect against queue failures with graceful degradation.
+- **Backpressure in BullMQ**: Limits queue processing to prevent overload.
+- **Role Hierarchies**: Simplifies authorization logic.
+
+## Tradeoffs
+- **Complexity vs. Scalability**: CQRS adds complexity but improves read/write optimization.
+- **Redis Dependency**: Increases infrastructure requirements but enables distributed features.
+- **Circuit Breakers**: May delay retries but prevent cascading failures.
+
+## Setup Instructions
+1. Clone the repository.
+2. Install dependencies: `bun install`.
+3. Copy `.env.example` to `.env` and update with your credentials.
+4. Run migrations: `bun run migration:run`.
+5. Seed database: `bun run seed`.
+6. Start server: `bun run start:dev`.
+
+## API Endpoints
+- **POST /auth/login**: Authenticate user.
+- **POST /auth/register**: Register user.
+- **POST /auth/refresh**: Refresh access token.
+- **GET /tasks**: List tasks with filtering/pagination.
+- **GET /tasks/:id**: Get task details.
+- **POST /tasks**: Create task.
+- **PATCH /tasks/:id**: Update task.
+- **DELETE /tasks/:id**: Delete task.
+- **POST /tasks/batch**: Batch process tasks.
+- **GET /health**: Health check.
+- **GET /health/metrics**: Prometheus metrics.
+
+## Testing
+- Unit tests: `bun run test`.
+- Integration tests: `bun run test:e2e`.
